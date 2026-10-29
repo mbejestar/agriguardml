@@ -1,6 +1,9 @@
 
 import streamlit as st
 import tensorflow as tf
+import keras
+import inspect
+st_version = None
 from PIL import Image
 import numpy as np
 import json
@@ -35,6 +38,14 @@ def load_class_map():
 
 
 try:
+    
+    st.write("TensorFlow version:", tf.__version__)
+    st.write("Keras version:", keras.__version__)
+    st.write(
+    "GlorotUniform parameters:",
+    str(inspect.signature(keras.initializers.GlorotUniform))
+
+
     model = load_disease_model()
     class_map = load_class_map()
 except Exception as e:
