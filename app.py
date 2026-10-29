@@ -44,7 +44,7 @@ try:
     st.write(
     "GlorotUniform parameters:",
     str(inspect.signature(keras.initializers.GlorotUniform))
-
+    )
 
     model = load_disease_model()
     class_map = load_class_map()
