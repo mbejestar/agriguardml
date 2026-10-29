@@ -1,63 +1,120 @@
+
 import streamlit as st
 import tensorflow as tf
 from PIL import Image
 import numpy as np
 import json
+from pathlib import Path
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
-st.set_page_config(page_title="Plant Disease Classifier", page_icon="🌿")
+st.set_page_config(
+    page_title="Plant Disease Classifier",
+    page_icon="🌿"
+)
+
+MODEL_PATH = Path(__file__).parent / "best_plant_disease_model.keras"
+CLASS_MAP_PATH = Path(__file__).parent / "leaf-map.json"
+
 
 @st.cache_resource
 def load_disease_model():
     return tf.keras.models.load_model(
-        "best_plant_disease_model.keras",
-        custom_objects={
-            "preprocess_input": preprocess_input
-        },
+        MODEL_PATH,
+        custom_objects={"preprocess_input": preprocess_input},
         compile=False
     )
 
-model = load_disease_model()
+
 @st.cache_data
 def load_class_map():
-    # Attempts to load the mapping file to translate indices to names
     try:
-        with open("leaf-map.json", "r") as f:
+        with open(CLASS_MAP_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except (FileNotFoundError, json.JSONDecodeError):
         return None
 
-model = load_disease_model()
-class_map = load_class_map()
+
+try:
+    model = load_disease_model()
+    class_map = load_class_map()
+except Exception as e:
+    st.error("The model could not be loaded.")
+    st.code(str(e))
+    st.info(
+        "Check the model file, TensorFlow version, and "
+        "preprocess_input serialization."
+    )
+    st.stop()
+
 
 st.title("🌿 Plant Disease Predictor")
-st.write("Upload a photo of a plant leaf to identify potential diseases.")
+st.write(
+    "Upload a photo of a plant leaf to identify potential diseases."
+)
 
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader(
+    "Choose a leaf image",
+    type=["jpg", "jpeg", "png"]
+)
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Image", use_container_width=True)
-    
-    if st.button("Predict Disease"):
-        with st.spinner("Analyzing leaf..."):
-            # Resize to match your model's expected input (adjust 224 to your model's input shape)
-            img_resized = image.resize((224, 224))
-            
-            # Convert to array and expand dimensions for the model batch size
-            img_array = tf.keras.preprocessing.image.img_to_array(img_resized)
-            img_array = np.expand_dims(img_array, axis=0)
-            
-            # Scale pixels if your model was trained with normalized data (e.g., 0-1)
-            # img_array = img_array / 255.0 
-            
-            predictions = model.predict(img_array)
-            predicted_index = int(np.argmax(predictions, axis=1)[0])
-            confidence = float(np.max(predictions))
-            
-            st.success("Prediction Complete!")
-            st.write(f"**Predicted Class Index:** {predicted_index}")
-            st.write(f"**Confidence:** {confidence:.2%}")
-            
-            if class_map:
-                st.write("*(Use your leaf-map.json data to map this index to the exact disease name)*")
+    try:
+        image = Image.open(uploaded_file).convert("RGB")
+        st.image(
+            image,
+            caption="Uploaded leaf",
+            use_container_width=True
+        )
+
+        if st.button("Predict Disease", type="primary"):
+            with st.spinner("Analyzing leaf..."):
+                image = image.resize((224, 224))
+
+                img_array = tf.keras.utils.img_to_array(image)
+                img_array = np.expand_dims(img_array, axis=0)
+
+                # Correct for MobileNetV2 when this matches
+                # the preprocessing used during model training.
+                img_array = preprocess_input(img_array)
+
+                predictions = model.predict(
+                    img_array,
+                    verbose=0
+                )
+
+                predicted_index = int(np.argmax(predictions[0]))
+                confidence = float(np.max(predictions[0]))
+
+                disease_name = f"Class {predicted_index}"
+
+                if isinstance(class_map, dict):
+                    disease_name = class_map.get(
+                        str(predicted_index),
+                        class_map.get(
+                            predicted_index,
+                            disease_name
+                        )
+                    )
+
+                elif isinstance(class_map, list):
+                    if 0 <= predicted_index < len(class_map):
+                        disease_name = class_map[predicted_index]
+
+                st.success("Prediction complete!")
+                st.subheader(f"Prediction: {disease_name}")
+                st.metric("Model confidence", f"{confidence:.2%}")
+
+                if confidence < 0.60:
+                    st.warning(
+                        "The model is uncertain. Try a clearer "
+                        "photo with good lighting and a visible leaf."
+                    )
+
+                st.caption(
+                    "This is an AI prediction, not a confirmed "
+                    "plant disease diagnosis."
+                )
+
+    except Exception as e:
+        st.error("Could not process the image or make a prediction.")
+        st.exception(e)
