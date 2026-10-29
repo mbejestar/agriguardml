@@ -110,6 +110,20 @@ if uploaded_file is not None:
                 st.error("Unsupported class mapping format.")
                 st.stop()
 
+            
+st.write("Model output classes:", len(predictions))
+st.write("JSON entries:", len(class_map))
+
+unique_labels = sorted({
+    str(value[0]).split(":::")[0]
+    for value in class_map.values()
+    if isinstance(value, list) and value
+})
+
+st.write("Unique disease labels:", len(unique_labels))
+st.write("Disease names:", unique_labels)
+
+
             if len(labels) != len(predictions):
                 st.error(
                     "Class mapping does not match model outputs."
