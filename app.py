@@ -15,6 +15,23 @@ BASE_DIR = Path(__file__).parent
 MODEL_PATH = BASE_DIR / "best_plant_disease_model.keras"
 MAP_PATH = BASE_DIR / "leaf-map.json"
 
+
+st.write("Application directory:", str(BASE_DIR))
+st.write("Model exists:", MODEL_PATH.is_file())
+
+st.write(
+    "Files available:",
+    [p.name for p in BASE_DIR.iterdir()]
+)
+
+if MODEL_PATH.is_file():
+    st.write(
+        "Model size:",
+        MODEL_PATH.stat().st_size,
+        "bytes"
+    )
+
+
 # Same custom function used in your Colab notebook
 @tf.keras.utils.register_keras_serializable()
 def preprocess_input(x):
