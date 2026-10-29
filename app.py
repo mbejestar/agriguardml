@@ -3,14 +3,21 @@ import tensorflow as tf
 from PIL import Image
 import numpy as np
 import json
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 
 st.set_page_config(page_title="Plant Disease Classifier", page_icon="🌿")
 
 @st.cache_resource
 def load_disease_model():
-    # Loads the specific Keras model from your directory
-    return tf.keras.models.load_model("best_plant_disease_model.keras")
+    return tf.keras.models.load_model(
+        "best_plant_disease_model.keras",
+        custom_objects={
+            "preprocess_input": preprocess_input
+        },
+        compile=False
+    )
 
+model = load_disease_model()
 @st.cache_data
 def load_class_map():
     # Attempts to load the mapping file to translate indices to names
